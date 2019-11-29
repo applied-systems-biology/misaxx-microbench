@@ -96,6 +96,24 @@ namespace {
 
         return img_mean + ((img_var - noise_variance) / img_var).mul(img - img_mean);
     }
+
+    cv::images::grayscale32f fftpad(const cv::images::grayscale32f &img) {
+        int optimalWidth = cv::getOptimalDFTSize(img.size().width);
+        int optimalHeight = cv::getOptimalDFTSize(img.size().height);
+        int bright = optimalWidth - img.size().width;
+        int bbottom = optimalHeight - img.size().height;
+        cv::images::grayscale32f padded = img;
+        cv::copyMakeBorder(img, padded, 0, bbottom, 0, bright, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+        return padded;
+    }
+
+    cv::images::grayscale32f fftunpad(const cv::images::grayscale32f &img, const cv::images::grayscale32f &source) {
+        cv::Size source_size = source.size();
+        cv::Rect roi { 0, 0, source_size.width, source_size.height };
+        cv::images::grayscale32f result { source_size, 0 };
+        img(roi).copyTo(result);
+        return result;
+    }
 }
 
 void microbench_task::work() {
@@ -124,12 +142,18 @@ void microbench_task::work() {
     times.push_back(chrono_clock_t::now());
 
     // FFT / IFFT
-    cv::images::complex img_fft {img.size(), cv::Vec2f(0, 0)};
-    cv::dft(img, img_fft, cv::DFT_COMPLEX_OUTPUT);
-    cv::images::complex img_ifft_ {img.size(), cv::Vec2f(0, 0)};
-    cv::dft(img_fft, img_ifft_, cv::DFT_REAL_OUTPUT | cv::DFT_SCALE);
-    cv::images::grayscale32f img_ifft {img.size(), 0};
-    cv::mixChannels({ img_ifft_ }, {img_ifft}, {0, 0});
+    cv::images::grayscale32f img_ifft {};
+    {
+        cv::images::grayscale32f img_padded = fftpad(img);
+        cv::images::complex img_fft {img_padded.size(), cv::Vec2f(0, 0)};
+        cv::dft(img_padded, img_fft, cv::DFT_COMPLEX_OUTPUT);
+        cv::images::complex img_ifft_ {img_padded.size(), cv::Vec2f(0, 0)};
+        cv::dft(img_fft, img_ifft_, cv::DFT_REAL_OUTPUT | cv::DFT_SCALE);
+        cv::images::grayscale32f img_ifftr { img_padded.size(), 0 };
+        cv::mixChannels({ img_ifft_ }, {img_ifftr}, {0, 0});
+        img_ifft = fftunpad(img_ifftr, img);
+    }
+
     times.push_back(chrono_clock_t::now());
 
     // Otsu
