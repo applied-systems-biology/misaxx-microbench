@@ -18,7 +18,7 @@ misaxx::misa_module_info misaxx_microbench::module_info() {
     misaxx::misa_module_info info;
     info.set_id("misaxx-microbench");
     info.set_version("1.0.0");
-    info.set_name("misaxx-microbench");
+    info.set_name("MISA++ Single operation benchmarks");
     info.set_description("Applies common image processing algorithms to all images and returns their runtimes");
     info.add_author("Ruman Gerst");
     info.set_license("BSD-2-Clause");
